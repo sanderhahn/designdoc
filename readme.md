@@ -1,12 +1,12 @@
-# Couch Design Updater
+# Update CouchDB design document
 
 Update CouchDB design document using individual files:
 
-- doc.json
-- shows/*.js
-- views/*/map.js
-- views/*/reduce.js
-- lists/*.js
+- `doc.json`
+- `shows/*.js`
+- `views/*/map.js`
+- `views/*/reduce.js`
+- `lists/*.js`
 
 Configure CouchDB destination using environment variables:
 

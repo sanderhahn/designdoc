@@ -1,144 +1,159 @@
+/*jslint indent: 2 */
+
 "use strict";
 
 var Q = require('q'),
-    fs = require('fs'),
-    request = Q.denodeify(require('request')),
-    glob = Q.denodeify(require('glob'));
+  fs = require('fs'),
+  request = Q.denodeify(require('request')),
+  glob = Q.denodeify(require('glob'));
 
-function readView (viewDir) {
-  var mapFile = viewDir + '/map.js'
-  var view = {}
-  if(fs.existsSync(mapFile)) {
-    view.map = fs.readFileSync(mapFile).toString()
-    var reduceFile = viewDir + '/reduce.js'
-    if(fs.existsSync(reduceFile)) {
-      view.reduce = fs.readFileSync(reduceFile).toString()
+function readView(viewDir) {
+  var mapFile = viewDir + '/map.js',
+    view = {},
+    reduceFile;
+  if (fs.existsSync(mapFile)) {
+    view.map = fs.readFileSync(mapFile).toString();
+    reduceFile = viewDir + '/reduce.js';
+    if (fs.existsSync(reduceFile)) {
+      view.reduce = fs.readFileSync(reduceFile).toString();
     }
-    return view
+    return view;
   }
 }
 
-function generateShows (showsFiles) {
-  var shows = {}
+function generateShows(showsFiles) {
+  var shows = {};
   showsFiles.map(function (showFile) {
-    var showName = showFile.substr('shows/'.length, showFile.length - 'shows/.js'.length)
-    var show = fs.readFileSync(showFile).toString()
-    shows[showName] = show
-  })
-  return shows
+    var showName = showFile.substr('shows/'.length, showFile.length - 'shows/.js'.length),
+      show = fs.readFileSync(showFile).toString();
+    shows[showName] = show;
+  });
+  return shows;
 }
 
-function generateViews (viewDirs) {
-  var views = {}
+function generateViews(viewDirs) {
+  var views = {};
   viewDirs.map(function (viewDir) {
-    var viewName = viewDir.substr('views/'.length)
-    var view = readView(viewDir)
+    var viewName = viewDir.substr('views/'.length),
+      view = readView(viewDir);
     if (view !== null) {
-      views[viewName] = view
+      views[viewName] = view;
     }
-  })
-  return views
+  });
+  return views;
 }
 
-function generateLists (listsFiles) {
-  var lists = {}
+function generateLists(listsFiles) {
+  var lists = {};
   listsFiles.map(function (listFile) {
-    var listName = listFile.substr('lists/'.length, listFile.length - 'lists/.js'.length)
-    var list = fs.readFileSync(listFile).toString()
-    lists[listName] = list
-  })
-  return lists
+    var listName = listFile.substr('lists/'.length, listFile.length - 'lists/.js'.length),
+      list = fs.readFileSync(listFile).toString();
+    lists[listName] = list;
+  });
+  return lists;
 }
 
-function showInfo (url, design) {
-  console.log('Possible parameters: include_docs=true, group_level=1')
-  console.log('Shows:')
-  for(var name in design.shows) {
-    console.log("\t" + url + '/_show/' + name + '/:id')
+function showInfo(url, design) {
+  var name;
+  console.log('Possible parameters: include_docs=true, group_level=1');
+  console.log('Shows:');
+  for (name in design.shows) {
+    if (design.shows.hasOwnProperty(name)) {
+      console.log("\t" + url + '/_show/' + name + '/:id');
+    }
   }
-  console.log('Views:')
-  for(var name in design.views) {
-    console.log("\t" + url + '/_view/' + name)
+  console.log('Views:');
+  for (name in design.views) {
+    if (design.views.hasOwnProperty(name)) {
+      console.log("\t" + url + '/_view/' + name);
+    }
   }
-  console.log('Lists:')
-  for(var name in design.lists) {
-    console.log("\t" + url + '/_list/' + name + '/:view')
+  console.log('Lists:');
+  for (name in design.lists) {
+    if (design.lists.hasOwnProperty(name)) {
+      console.log("\t" + url + '/_list/' + name + '/:view');
+    }
   }
 }
 
-function storeDesign (design) {
-  var host = process.env.COUCHDB_HOST
-  var db = process.env.COUCHDB_DATABASE
+function storeDesign(design) {
+  var host = process.env.COUCHDB_HOST,
+    db = process.env.COUCHDB_DATABASE,
 
-  var user = process.env.COUCHDB_USER
-  var password = process.env.COUCHDB_PASSWORD
-  var auth = ''
+    user = process.env.COUCHDB_USER,
+    password = process.env.COUCHDB_PASSWORD,
+    auth = '',
+
+    base_url,
+    url;
 
   if (user && password) {
-    auth = user + ':' + password + '@'
+    auth = user + ':' + password + '@';
   }
 
-  var base_url = 'http://' + [host, db, design._id].join ('/')
-  var url = 'http://' + [auth + host, db, design._id].join ('/')
+  base_url = 'http://' + [host, db, design._id].join('/');
+  url = 'http://' + [auth + host, db, design._id].join('/');
 
-  request ({
+  request({
     url: url,
     method: 'HEAD'
-  }).then (function (args) {
-    var response = args.shift ()
-    var body = args.shift ()
+  }).then(function (args) {
+    var response = args.shift(),
+      etag;
     if (response.headers.etag) {
-      var etag = response.headers.etag
-      design._rev = etag.substr (1, etag.length - 2)
+      etag = response.headers.etag;
+      design._rev = etag.substr(1, etag.length - 2);
     }
   }).then(function () {
 
-    request ({
+    request({
       url: url,
       method: 'PUT',
       json: design
-    }).then (function (args) {
-      var response = args.shift()
-      var body = args.shift()
-      console.log (body)
-    }).catch (function (error) {
-      console.log (error)
-      process.exit (1)
-    })
+    }).then(function (args) {
+      var response = args.shift(),
+        body = args.shift();
+      console.log(body);
+    }).catch(function (error) {
+      console.log(error);
+      process.exit(1);
+    });
 
-    showInfo (base_url, design)
+    showInfo(base_url, design);
 
-  }).catch (function (error) {
-    console.log (error)
-    process.exit (1)
-  })
+  }).catch(function (error) {
+    console.log(error);
+    process.exit(1);
+  });
 
 }
 
-var design
+var design;
 Q.all([
-  glob ('shows/*.js'),
-  glob ('views/*'),
-  glob ('lists/*.js')
+  glob('shows/*.js'),
+  glob('views/*'),
+  glob('lists/*.js')
 ]).then(function (all) {
 
-  design = JSON.parse (fs.readFileSync ('doc.json').toString ())
+  design = JSON.parse(fs.readFileSync('doc.json').toString());
 
-  var shows = all.shift ()
-  var views = all.shift ()
-  var lists = all.shift ()
+  var shows = all.shift(),
+    views = all.shift(),
+    lists = all.shift();
 
-  design.shows = generateShows (shows)
-  design.views = generateViews (views)
-  design.lists = generateLists (lists)
+  design.shows = generateShows(shows);
+  design.views = generateViews(views);
+  design.lists = generateLists(lists);
 
-  if (fs.existsSync ('validate_doc_update.js')) {
-    design.validate_doc_update = fs.readFileSync ('validate_doc_update.js').toString()
+  if (fs.existsSync('validate_doc_update.js')) {
+    design.validate_doc_update = fs.readFileSync('validate_doc_update.js').toString();
   }
 
-}).then (function () {
-  storeDesign(design)
-}).catch (function (error) {
-  console.log (error)
-  process.exit(1)
-})
+}).then(function () {
+
+  storeDesign(design);
+
+}).catch(function (error) {
+  console.log(error);
+  process.exit(1);
+});
