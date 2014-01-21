@@ -29,6 +29,6 @@ node designdoc.js
 
 # Todo
 
--_attachments
+- attachments
 - signatures
 - lib
