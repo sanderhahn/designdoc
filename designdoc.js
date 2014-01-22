@@ -1,11 +1,12 @@
-/*jslint indent: 2 */
+/*jslint indent: 2 node: true nomen: true stupid: true */
 
 "use strict";
 
 var Q = require('q'),
   fs = require('fs'),
   request = Q.denodeify(require('request')),
-  glob = Q.denodeify(require('glob'));
+  glob = Q.denodeify(require('glob')),
+  mime = require('mime');
 
 function readView(viewDir) {
   var mapFile = viewDir + '/map.js',
@@ -53,6 +54,26 @@ function generateLists(listsFiles) {
   return lists;
 }
 
+function generateAttachments(attachmentFiles) {
+  var attachments = {};
+  attachmentFiles.map(function (attachmentFile) {
+    var attachmentName = attachmentFile.substr('attachments/'.length),
+      stats = fs.statSync(attachmentFile),
+      isDir = fs.lstatSync(attachmentFile).isDirectory(),
+      mime_type;
+
+    if (!isDir) {
+      mime_type = mime.lookup(attachmentFile);
+      attachments[attachmentName] = {
+        follows: true,
+        content_type: mime_type,
+        length: stats.size
+      };
+    }
+  });
+  return attachments;
+}
+
 function showInfo(url, design) {
   var name;
   console.log('Possible parameters: include_docs=true, group_level=1');
@@ -80,12 +101,16 @@ function storeDesign(design) {
   var host = process.env.COUCHDB_HOST,
     db = process.env.COUCHDB_DATABASE,
 
-    user = process.env.COUCHDB_USER,
+    user = process.env.COUCHDB_USERNAME,
     password = process.env.COUCHDB_PASSWORD,
     auth = '',
 
     base_url,
     url;
+
+  if (host === undefined || db === undefined) {
+    throw "Please set COUCHDB_HOST and COUCHDB_DATABASE environment variables";
+  }
 
   if (user && password) {
     auth = user + ':' + password + '@';
@@ -105,14 +130,29 @@ function storeDesign(design) {
       design._rev = etag.substr(1, etag.length - 2);
     }
   }).then(function () {
+    var multipart, attachmentFile;
+
+    multipart = [{
+      'content-type': 'application/json',
+      body: JSON.stringify(design)
+    }];
+
+    for (attachmentFile in design._attachments) {
+      if (design._attachments.hasOwnProperty(attachmentFile)) {
+        multipart.push({body: fs.readFileSync('attachments/' + attachmentFile)});
+      }
+    }
 
     request({
       url: url,
       method: 'PUT',
-      json: design
+      // json: design
+      multipart: multipart
     }).then(function (args) {
-      var response = args.shift(),
-        body = args.shift();
+      var body;
+      // response =
+      args.shift();
+      body = args.shift();
       console.log(body);
     }).catch(function (error) {
       console.log(error);
@@ -132,18 +172,21 @@ var design;
 Q.all([
   glob('shows/*.js'),
   glob('views/*'),
-  glob('lists/*.js')
+  glob('lists/*.js'),
+  glob('attachments/**/*')
 ]).then(function (all) {
 
   design = JSON.parse(fs.readFileSync('doc.json').toString());
 
   var shows = all.shift(),
     views = all.shift(),
-    lists = all.shift();
+    lists = all.shift(),
+    attachments = all.shift();
 
   design.shows = generateShows(shows);
   design.views = generateViews(views);
   design.lists = generateLists(lists);
+  design._attachments = generateAttachments(attachments);
 
   if (fs.existsSync('validate_doc_update.js')) {
     design.validate_doc_update = fs.readFileSync('validate_doc_update.js').toString();

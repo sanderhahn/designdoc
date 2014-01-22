@@ -2,10 +2,11 @@
   "name": "couchdb-design",
   "version": "0.0.0",
   "description": "",
-  "main": "design.js",
+  "main": "designdoc.js",
   "dependencies": {
     "q": "~1.0.0",
     "request": "~2.33.0",
-    "glob": "~3.2.8"
+    "glob": "~3.2.8",
+    "mime": "~1.2.11"
   }
 }

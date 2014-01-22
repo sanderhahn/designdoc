@@ -7,6 +7,7 @@ Update CouchDB design document using individual files:
 - `views/*/map.js`
 - `views/*/reduce.js`
 - `lists/*.js`
+- `attachments/**/*`
 
 Configure CouchDB destination using environment variables:
 
@@ -29,6 +30,5 @@ node designdoc.js
 
 # Todo
 
-- attachments
 - signatures
 - lib
